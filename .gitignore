@@ -91,6 +91,9 @@ lightning_logs/
 *.ckpt
 
 # ---- Project-specific data rules ----
+# CSV files: ignore by default, but keep dataset root CSVs as source-of-truth
+*.csv
+
 # Keep CSV index files but ignore image folders
 # tumor-cifar v1/v2 image data directories
 /tumor-cifar-v1/train/

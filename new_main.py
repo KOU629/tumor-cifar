@@ -22,6 +22,43 @@ from data_submit import get_csv_list
 
 from torch.nn.utils.rnn import pack_padded_sequence
 
+def resolve_device(cfig):
+    """Return (device, cuda_flag) based on config. Supports 'cpu', 'cuda', 'dml' or auto.
+    - cpu: torch.device('cpu')
+    - cuda: torch.device('cuda') if available else cpu
+    - dml: torch_directml.device() if available else cpu
+    - default/auto: prefer CUDA if available, else DirectML if available, else CPU
+    """
+    dev = (cfig or {}).get('device', None)
+    # Normalize string
+    if isinstance(dev, str):
+        dev = dev.lower().strip()
+    # Try explicit selections first
+    if dev == 'cpu':
+        return torch.device('cpu'), False
+    if dev == 'cuda':
+        if torch.cuda.is_available():
+            return torch.device('cuda'), True
+        else:
+            print("[device] Requested 'cuda' but CUDA is not available. Falling back to CPU.")
+            return torch.device('cpu'), False
+    if dev == 'dml':
+        try:
+            import torch_directml
+            return torch_directml.device(), False
+        except Exception as e:
+            print(f"[device] Requested 'dml' but torch-directml not available: {e}. Falling back to CPU.")
+            return torch.device('cpu'), False
+
+    # Auto selection
+    if torch.cuda.is_available():
+        return torch.device('cuda'), True
+    try:
+        import torch_directml
+        return torch_directml.device(), False
+    except Exception:
+        return torch.device('cpu'), False
+
 class DenseDisRNN(nn.Module):  # stub to silence undefined warnings; not used in current configs
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -130,9 +167,9 @@ class ConvDisRNN(nn.Module):
 
 class Trainer(object):
 
-    def __init__(self, cfig):
+    def __init__(self, cfig, device=None):
 
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = device or torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.cfig = cfig
         self.csv_path = os.path.join(self.cfig['save_path'], 'csv')
         self.lr = cfig['learning_rate']
@@ -504,7 +541,14 @@ if __name__ == '__main__':
     f = open('cifar10.yaml', 'r').read()
     # Use safe_load for security and compatibility
     cfig = yaml.safe_load(f)
+    # Ensure save_path exists before copying any files into it
+    try:
+        os.makedirs(cfig['save_path'], exist_ok=True)
+    except Exception as e:
+        print(f"Warning: failed to create save_path '{cfig['save_path']}': {e}")
     shutil.copyfile('./cifar10.yaml', cfig['save_path'] + '/tmp.yaml')
-    seed_everything(seed=1337, cuda=True)
-    trainer = Trainer(cfig)
+    device, cuda_flag = resolve_device(cfig)
+    seed_everything(seed=1337, cuda=cuda_flag)
+    print(f"[device] Using device: {device}")
+    trainer = Trainer(cfig, device=device)
     trainer.train()

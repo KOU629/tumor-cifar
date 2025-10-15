@@ -1,10 +1,11 @@
-# DirectML smoke config (Windows GPU via DirectML)
+# GPU smoke template (fast check)
 
 data_root: "tumor-cifar-v1"
-save_path: 'runs/exp_dml_smoke'
+save_path: 'runs/exp_gpu_smoke'
 tt_csv_path: 'tumor-cifar-v1/test.csv'
 tr_csv_path: 'tumor-cifar-v1/train.csv'
 
+# training Params
 max_epoch: 1
 start_epoch: 0
 n_classes: 2
@@ -25,6 +26,3 @@ add_positive: False
 savemodel: True
 model_name: disrnn
 mode: infor_exp
-
-# Prefer DirectML backend
-device: dml

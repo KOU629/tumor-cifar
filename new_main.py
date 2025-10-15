@@ -22,6 +22,16 @@ from data_submit import get_csv_list
 
 from torch.nn.utils.rnn import pack_padded_sequence
 
+class DenseDisRNN(nn.Module):  # stub to silence undefined warnings; not used in current configs
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        raise NotImplementedError("DenseDisRNN is not implemented. Use model_name in ['bl','rnn','disrnn'].")
+
+class ConvTRNN(nn.Module):  # stub to silence undefined warnings; not used in current configs
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        raise NotImplementedError("ConvTRNN is not implemented. Use model_name in ['bl','rnn','disrnn'].")
+
 def seed_everything(seed, cuda=True):
   # Set the random seed manually for reproducibility.
   np.random.seed(seed)
@@ -273,7 +283,7 @@ class Trainer(object):
                 pred = self.model(data, dist)
             else:
                 pred = self.model(data)             # here should be careful
-            pred_prob = F.softmax(pred)
+            pred_prob = F.softmax(pred, dim=1)
             #loss = self.criterion(pred, target)
             #print (pred.shape, target.shape)
             if batch_idx == 0:
@@ -285,13 +295,13 @@ class Trainer(object):
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 4)
             self.optim.step()
             print_str = 'train epoch=%d, batch_idx=%d/%d, loss=%.4f\n' % (
-            epoch, batch_idx, len(self.train_loader), loss.data[0])
+            epoch, batch_idx, len(self.train_loader), loss.item())
             #print(print_str)
             pred_cls = pred.data.max(1)[1]
             pos_list += pred_prob[:, 1].data.cpu().numpy().tolist()
             pred_list += pred_cls.data.cpu().numpy().tolist()
             target_list += target.data.cpu().numpy().tolist()
-            loss_list.append(loss.data.cpu().numpy().tolist())
+            loss_list.append(loss.item())
 
         print (confusion_matrix(target_list, pred_list))
         accuracy=accuracy_score(target_list,pred_list)
@@ -352,7 +362,7 @@ class Trainer(object):
                 pred = self.model(data, dist)
             else:
                 pred = self.model(data)   
-            pred_prob = F.softmax(pred)
+            pred_prob = F.softmax(pred, dim=1)
             #loss = self.criterion(pred, target)
             loss = nn.CrossEntropyLoss()(pred, target)
             
@@ -360,7 +370,7 @@ class Trainer(object):
             pos_list += pred_prob[:, 1].data.cpu().numpy().tolist()
             pred_list += pred_cls.data.cpu().numpy().tolist()
             target_list += target.data.cpu().numpy().tolist()
-            loss_list.append(loss.data.cpu().numpy().tolist())
+            loss_list.append(loss.item())
             
         
         accuracy=accuracy_score(target_list,pred_list)
@@ -421,7 +431,7 @@ class Trainer(object):
                 pred = self.model(data, dist)
             else:
                 pred = self.model(data)   
-            pred_prob = F.softmax(pred)
+            pred_prob = F.softmax(pred, dim=1)
             #loss = self.criterion(pred, target)
             loss = nn.CrossEntropyLoss()(pred, target)
             
@@ -429,7 +439,7 @@ class Trainer(object):
             pos_list += pred_prob[:, 1].data.cpu().numpy().tolist()
             pred_list += pred_cls.data.cpu().numpy().tolist()
             target_list += target.data.cpu().numpy().tolist()
-            loss_list.append(loss.data.cpu().numpy().tolist())
+            loss_list.append(loss.item())
             
         
         accuracy=accuracy_score(target_list,pred_list)
@@ -492,7 +502,8 @@ import yaml
 import shutil        
 if __name__ == '__main__':
     f = open('cifar10.yaml', 'r').read()
-    cfig = yaml.load(f)
+    # Use safe_load for security and compatibility
+    cfig = yaml.safe_load(f)
     shutil.copyfile('./cifar10.yaml', cfig['save_path'] + '/tmp.yaml')
     seed_everything(seed=1337, cuda=True)
     trainer = Trainer(cfig)

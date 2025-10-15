@@ -43,11 +43,53 @@ This function is called by get_nodule_img, which transfer the nodule information
 ### Generate Dataset
 There is an example showing how to use the data in demo_submit.ipynb.
 
-### training
+### Setup (Windows, PowerShell)
 
-python new_main.py
+1) Create and activate a virtual environment (VS Code uses it automatically if configured)
 
-Note there is a config file named cifar10.yaml
+2) Install dependencies (CPU)
+
+```powershell
+& ".\.venv\Scripts\python.exe" -m pip install -U pip setuptools wheel
+& ".\.venv\Scripts\python.exe" -m pip install -r requirements.txt
+```
+
+Optional: Install GPU build (CUDA). Pick your CUDA version, e.g., cu121:
+
+```powershell
+# Example for CUDA 12.1 wheels
+& ".\.venv\Scripts\python.exe" -m pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision
+```
+
+3) Verify environment
+
+```powershell
+& ".\.venv\Scripts\python.exe" scripts\check_env.py
+```
+
+4) Prepare CSV from provided T-dirs (if needed)
+
+```powershell
+& ".\.venv\Scripts\python.exe" scripts\gen_csv_from_T_dirs.py --root "tumor-cifar-v1" --phase train
+& ".\.venv\Scripts\python.exe" scripts\gen_csv_from_T_dirs.py --root "tumor-cifar-v1" --phase test
+```
+
+### Training (Smoke Run)
+
+Default config is `cifar10.yaml`. Set `save_path` to a writable folder, then run:
+
+```powershell
+& ".\.venv\Scripts\python.exe" new_main.py
+```
+
+You can also use templates in `configs/`:
+
+```powershell
+Copy-Item configs\cifar10.cpu.yaml cifar10.yaml -Force
+# or for GPU oriented run
+Copy-Item configs\cifar10.gpu.yaml cifar10.yaml -Force
+& ".\.venv\Scripts\python.exe" new_main.py
+```
 
 <img src="https://github.com/MASILab/tumor-cifar/blob/master/illustration.png" width="600">
 

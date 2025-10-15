@@ -1,0 +1,28 @@
+# CPU template
+
+data_root: "tumor-cifar-v1"
+save_path: 'runs/exp_cpu'
+tt_csv_path: 'tumor-cifar-v1/test.csv'
+tr_csv_path: 'tumor-cifar-v1/train.csv'
+
+# training Params
+max_epoch: 5
+start_epoch: 0
+n_classes: 2
+learning_rate: 0.001
+batch_size: 64
+
+begin_time: 0
+time: 5
+adjust_lr: True
+
+steps: [3, 4]
+lr_gamma: 0.4
+
+use_exist_model: False
+save_tensorlog: True
+iseval: True
+add_positive: False
+savemodel: True
+model_name: disrnn
+mode: infor_exp

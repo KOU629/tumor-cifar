@@ -4,7 +4,7 @@ from functools import partial
 
 try:
     # pytorch<=0.4.1
-    from torch.nn._functions.thnn import rnnFusedPointwise as fusedBackend
+    from torch.nn._functions.thnn import rnnFusedPointwise as fusedBackend  # type: ignore[reportMissingImports]
 except ImportError:
     fusedBackend = None
 import torch.nn as nn
@@ -33,7 +33,7 @@ def LSTMCell(input, hidden, w_ih, w_hh, b_ih=None, b_hh=None, linear_func=None):
     """ Copied from torch.nn._functions.rnn and modified """
     if linear_func is None:
         linear_func = F.linear
-    if input.is_cuda and linear_func is F.linear:
+    if fusedBackend is not None and input.is_cuda and linear_func is F.linear:
         igates = linear_func(input, w_ih)
         hgates = linear_func(hidden[0], w_hh)
         state = fusedBackend.LSTMFused.apply
@@ -60,7 +60,7 @@ def LSTMdisCell(input, time_dis, hidden, a, b, c, w_ih, w_hh, b_ih = None, b_hh 
     #print (input.shape, time_dis.shape)
     if linear_func is None:
         linear_func = F.linear
-    if input.is_cuda and linear_func is F.linear:
+    if fusedBackend is not None and input.is_cuda and linear_func is F.linear:
         igates = linear_func(input, w_ih)
         hgates = linear_func(hidden[0], w_hh)
         state = fusedBackend.LSTMFused.apply
@@ -75,8 +75,8 @@ def LSTMdisCell(input, time_dis, hidden, a, b, c, w_ih, w_hh, b_ih = None, b_hh 
 
         
     if mode == 'dis_exp':
-        
-        coff =  a.cuda() * torch.exp( - c.cuda() * time_dis) 
+
+        coff =  a * torch.exp( - c * time_dis)
 
         if len(forgetgate.shape) == 3: # for conv 1D
             coff = coff.unsqueeze(1).unsqueeze(2).expand_as(forgetgate)
@@ -89,8 +89,8 @@ def LSTMdisCell(input, time_dis, hidden, a, b, c, w_ih, w_hh, b_ih = None, b_hh 
     if  mode == 'infor_exp':
 
         assert len(time_dis) == 2
-        forcoff = a.cuda() * torch.exp( - c.cuda() * time_dis[0])
-        incoff = a.cuda() * torch.exp( - c.cuda() * time_dis[1])
+        forcoff = a * torch.exp( - c * time_dis[0])
+        incoff = a * torch.exp( - c * time_dis[1])
 
         if len(forgetgate.shape) == 3: # for conv 1D
             forcoff = forcoff.unsqueeze(1).unsqueeze(2).expand_as(forgetgate)
@@ -113,24 +113,32 @@ def LSTMdisCell(input, time_dis, hidden, a, b, c, w_ih, w_hh, b_ih = None, b_hh 
     if mode == 'dis_ploy_1':
         #print ('the mode is dis_ploy_1')
         print("a and c: ", a, c)
-        forcoff =  a.cuda() * torch.max(torch.tensor(1 -  c.cuda() * time_dis[0]), torch.tensor([0.1]).cuda())
-        incoff =  a.cuda() * torch.max(torch.tensor(1 -   c.cuda() * time_dis[1]), torch.tensor([0.1]).cuda())
+        thr = torch.tensor(0.1, device=forgetgate.device, dtype=forgetgate.dtype)
+        forcoff =  a * torch.maximum(1 -  c * time_dis[0], thr)
+        incoff =  a * torch.maximum(1 -  c * time_dis[1], thr)
         if len(forgetgate.shape) == 3: # for conv 1D
             forcoff = forcoff.unsqueeze(1).unsqueeze(2).expand_as(forgetgate)
             incoff = incoff.unsqueeze(1).unsqueeze(2).expand_as(ingate)
+        if len(forgetgate.shape) == 4: # for 2D images
+            forcoff = forcoff.unsqueeze(1).unsqueeze(2).unsqueeze(3).expand_as(forgetgate)
+            incoff = incoff.unsqueeze(1).unsqueeze(2).unsqueeze(3).expand_as(ingate)
+        if len(forgetgate.shape) == 5: # for 3D images
+            forcoff = forcoff.unsqueeze(1).unsqueeze(2).unsqueeze(3).unsqueeze(4).expand_as(forgetgate)
+            incoff = incoff.unsqueeze(1).unsqueeze(2).unsqueeze(3).unsqueeze(4).expand_as(ingate)
 
     if mode == 'dis_ploy_2':
         print("a and c: ", a, c)
-        forcoff = a.cuda() * torch.max(torch.tensor(1 - c.cuda() * time_dis[0] * time_dis[0]), torch.tensor([0.1]).cuda())
-        incoff = a.cuda() * torch.max(torch.tensor(1 - c.cuda() * time_dis[1] * time_dis[1]), torch.tensor([0.1]).cuda())
+        thr = torch.tensor(0.1, device=forgetgate.device, dtype=forgetgate.dtype)
+        forcoff = a * torch.maximum(1 - c * time_dis[0] * time_dis[0], thr)
+        incoff = a * torch.maximum(1 - c * time_dis[1] * time_dis[1], thr)
         if len(forgetgate.shape) == 3:  # for conv 1D
             forcoff = forcoff.unsqueeze(1).unsqueeze(2).expand_as(forgetgate)
             incoff = incoff.unsqueeze(1).unsqueeze(2).expand_as(ingate)
         
     if mode == 'dis_log':
         print("a and c: ", a, c)
-        forcoff = a.cuda() * torch.log(1 +  torch.exp( - c.cuda() * time_dis[0]))
-        incoff = a.cuda() * torch.log(1 + torch.exp(- c.cuda() * time_dis[1]))
+        forcoff = a * torch.log1p(torch.exp( - c * time_dis[0]))
+        incoff = a * torch.log1p(torch.exp(- c * time_dis[1]))
         if len(forgetgate.shape) == 3:  # for conv 1D
             forcoff = forcoff.unsqueeze(1).unsqueeze(2).expand_as(forgetgate)
             incoff = incoff.unsqueeze(1).unsqueeze(2).expand_as(ingate)
@@ -174,7 +182,7 @@ def GRUCell(input, hidden, w_ih, w_hh, b_ih=None, b_hh=None, linear_func=None):
     """ Copied from torch.nn._functions.rnn and modified """
     if linear_func is None:
         linear_func = F.linear
-    if input.is_cuda and linear_func is F.linear:
+    if fusedBackend is not None and input.is_cuda and linear_func is F.linear:
         gi = linear_func(input, w_ih)
         gh = linear_func(hidden, w_hh)
         state = fusedBackend.GRUFused.apply
@@ -384,10 +392,7 @@ def _conv_cell_helper(mode, convndim=2, stride=1, dilation=1, groups=1):
         cell = partial(PeepholeLSTMCell, linear_func=linear_func)
     elif mode in ['dis_exp','infor_exp', 'dis_ploy_1', 'dis_ploy_2','dis_ploy_0.5', 'infor_exp_nolearn', 'dis_log']:
         cell = partial(LSTMdisCell, linear_func=linear_func, mode = mode)
-    elif mode in ['TLSTMv2']:
-        cell = partial(tLSTMv2, linear_func=linear_func, mode = mode)
-    elif mode in ['TimeLSTM']:
-        cell = partial(TimeLSTM, linear_func=linear_func, mode = mode)
+    # Unsupported experimental modes are removed to avoid NameError
     else:
         raise Exception('Unknown mode: {}'.format(mode))
     return cell

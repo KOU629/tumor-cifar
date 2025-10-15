@@ -3,12 +3,12 @@
 
 
 data_root: "tumor-cifar-v1" # note the dataset in this respository is not complete since the set size is large, but you can generate with the provide code.
-save_path: 'path/to/save/folder'
+save_path: 'runs/exp1'
 tt_csv_path: 'tumor-cifar-v1/test.csv' # just a example
 tr_csv_path: 'tumor-cifar-v1/train.csv' # just a example
 
 # training Params
-max_epoch: 100
+max_epoch: 1
 start_epoch: 0
 n_classes: 2
 learning_rate: 0.001
